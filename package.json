@@ -1,0 +1,27 @@
+{
+  "name": "devmemory-mcp",
+  "version": "1.0.0",
+  "description": "DevMemory MCP - 개발자 작업 기억 MCP 서버",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "devmemory-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["mcp", "git", "devmemory", "cursor"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "simple-git": "^3.27.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
