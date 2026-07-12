@@ -26,5 +26,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/comente/devmemory-mcp:1.0.0
-            ghcr.io/comente/devmemory-mcp:latest
+            ghcr.io/${{ github.repository }}:1.0.0
+            ghcr.io/${{ github.repository }}:latest
