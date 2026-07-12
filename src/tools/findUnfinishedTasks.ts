@@ -1,23 +1,18 @@
-import { buildUnfinishedTask } from "../analyzer.js";
+import { buildUnfinishedTask, getDefaultSince } from "../analyzer.js";
 import { getRecentChangedFiles, searchInWorkingTree } from "../git.js";
-import { getDefaultSince } from "../analyzer.js";
+import { resolveRepoSource, withRepoMeta, type RepoSourceInput } from "../repoResolver.js";
 
 const UNFINISHED_PATTERN =
   /TODO|FIXME|HACK|not implemented|NotImplemented|raise NotImplementedError|throw new Error\(['"]not implemented|console\.(log|debug)|\bdebugger\b|\bprint\s*\(|\/\/\s*stub|#\s*stub|placeholder/i;
 
-export const findUnfinishedTasksSchema = {
-  repoPath: { type: "string" as const, description: "Git 저장소 경로" },
-  since: { type: "string" as const, description: "최근 변경 파일 필터 시작일 (기본 14일 전)" },
-};
-
-export async function handleFindUnfinishedTasks(args: {
-  repoPath: string;
-  since?: string;
-}) {
+export async function handleFindUnfinishedTasks(
+  args: RepoSourceInput & { since?: string }
+) {
+  const repo = await resolveRepoSource(args);
   const since = args.since ?? getDefaultSince(14);
-  const recentFiles = await getRecentChangedFiles(args.repoPath, since, 30);
+  const recentFiles = await getRecentChangedFiles(repo.repoPath, since, 30);
 
-  const allMatches = await searchInWorkingTree(args.repoPath, UNFINISHED_PATTERN);
+  const allMatches = await searchInWorkingTree(repo.repoPath, UNFINISHED_PATTERN);
   const recentSet = new Set(recentFiles);
 
   const prioritized = allMatches.sort((a, b) => {
@@ -38,12 +33,15 @@ export async function handleFindUnfinishedTasks(args: {
     {} as Record<string, number>
   );
 
-  return {
-    since,
-    totalFound: tasks.length,
-    byType,
-    recentChangedFiles: recentFiles.slice(0, 20),
-    tasks,
-    hint: "LLM: recentChangedFiles에 있는 미완성 작업을 우선 설명하고, 남은 작업 목록을 정리하세요.",
-  };
+  return withRepoMeta(
+    {
+      since,
+      totalFound: tasks.length,
+      byType,
+      recentChangedFiles: recentFiles.slice(0, 20),
+      tasks,
+      hint: "LLM: recentChangedFiles에 있는 미완성 작업을 우선 설명하고, 남은 작업 목록을 정리하세요.",
+    },
+    repo
+  );
 }

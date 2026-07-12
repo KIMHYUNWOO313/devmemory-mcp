@@ -4,25 +4,23 @@ import {
   getLatestCommit,
   getRecentChangedFiles,
 } from "../git.js";
+import { resolveRepoSource, withRepoMeta, type RepoSourceInput } from "../repoResolver.js";
 import { handleFindUnfinishedTasks } from "./findUnfinishedTasks.js";
 
-export const resumeLastWorkSchema = {
-  repoPath: { type: "string" as const, description: "Git 저장소 경로" },
-};
-
-export async function handleResumeLastWork(args: { repoPath: string }) {
-  const lastCommit = await getLatestCommit(args.repoPath);
-  const recentFiles = await getRecentChangedFiles(args.repoPath, undefined, 15);
+export async function handleResumeLastWork(args: RepoSourceInput) {
+  const repo = await resolveRepoSource(args);
+  const lastCommit = await getLatestCommit(repo.repoPath);
+  const recentFiles = await getRecentChangedFiles(repo.repoPath, undefined, 15);
 
   const unfinishedResult = await handleFindUnfinishedTasks({
-    repoPath: args.repoPath,
-    since: undefined,
+    repoUrl: repo.repoUrl,
+    repoPath: repo.source === "local" ? repo.repoPath : undefined,
   });
 
   let lastSummary = null;
   if (lastCommit) {
     try {
-      const { diff } = await getCommitDiff(args.repoPath, lastCommit.hash);
+      const { diff } = await getCommitDiff(repo.repoPath, lastCommit.hash);
       lastSummary = summarizeCommitFromDiff(lastCommit, diff);
     } catch {
       lastSummary = summarizeCommitFromDiff(lastCommit, "");
@@ -36,9 +34,12 @@ export async function handleResumeLastWork(args: { repoPath: string }) {
     lastSummary
   );
 
-  return {
-    ...context,
-    lastCommitSummary: lastSummary,
-    hint: "LLM: 개발자가 프로젝트를 다시 열었을 때 '마지막 작업 맥락'과 '다음 추천 작업'을 친절하게 안내하세요.",
-  };
+  return withRepoMeta(
+    {
+      ...context,
+      lastCommitSummary: lastSummary,
+      hint: "LLM: 개발자가 프로젝트를 다시 열었을 때 '마지막 작업 맥락'과 '다음 추천 작업'을 친절하게 안내하세요.",
+    },
+    repo
+  );
 }

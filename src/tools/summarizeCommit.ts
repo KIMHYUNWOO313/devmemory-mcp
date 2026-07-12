@@ -1,22 +1,28 @@
+import { explainCodeChangesFromDiff } from "../codeExplainer.js";
 import { summarizeCommitFromDiff } from "../analyzer.js";
 import { getCommitDiff } from "../git.js";
+import { resolveRepoSource, withRepoMeta, type RepoSourceInput } from "../repoResolver.js";
 
-export const summarizeCommitSchema = {
-  repoPath: { type: "string" as const, description: "Git 저장소 경로" },
-  commitHash: { type: "string" as const, description: "분석할 커밋 해시 (전체 또는 short hash)" },
-};
-
-export async function handleSummarizeCommit(args: {
-  repoPath: string;
-  commitHash: string;
-}) {
-  const { diff, commit } = await getCommitDiff(args.repoPath, args.commitHash);
+export async function handleSummarizeCommit(
+  args: RepoSourceInput & { commitHash: string }
+) {
+  const repo = await resolveRepoSource(args);
+  const { diff, commit } = await getCommitDiff(repo.repoPath, args.commitHash);
   const summary = summarizeCommitFromDiff(commit, diff);
+  const codeExplanation = explainCodeChangesFromDiff(diff, {
+    commitHash: commit.hash,
+    date: commit.date,
+  });
 
-  return {
-    ...summary,
-    commitMessage: commit.message,
-    diffPreview: diff.slice(0, 8000),
-    hint: "LLM: diffPreview와 technicalDetails를 참고해 커밋 메시지와 무관하게 실제 변경 내용을 자연어로 설명하세요.",
-  };
+  return withRepoMeta(
+    {
+      ...summary,
+      commitMessage: commit.message,
+      codeExplanation,
+      naturalLanguageReport: codeExplanation.narrative,
+      diffPreview: diff.slice(0, 8000),
+      hint: "LLM: codeExplanation.files[].parts[]에 파일/함수/역할(purpose)이 있습니다. 이를 자연어로 풀어 설명하세요.",
+    },
+    repo
+  );
 }

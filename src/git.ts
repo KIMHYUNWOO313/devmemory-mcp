@@ -17,14 +17,41 @@ export function validateRepoPath(repoPath: string): string {
   return absolute;
 }
 
+/** @alias validateRepoPath */
+export const resolveRepoPath = validateRepoPath;
+
 export function createGit(repoPath: string): SimpleGit {
   const absolute = validateRepoPath(repoPath);
   return simpleGit({ baseDir: absolute });
 }
 
+export function filterCommitsByAuthor(
+  commits: CommitInfo[],
+  authorEmail?: string,
+  authorName?: string
+): CommitInfo[] {
+  if (!authorEmail && !authorName) return commits;
+
+  return commits.filter((c) => {
+    if (authorEmail && c.email.toLowerCase().includes(authorEmail.toLowerCase())) {
+      return true;
+    }
+    if (authorName && c.author.toLowerCase().includes(authorName.toLowerCase())) {
+      return true;
+    }
+    return false;
+  });
+}
+
 export async function getCommitTimeline(
   repoPath: string,
-  options: { since?: string; until?: string; maxCount?: number } = {}
+  options: {
+    since?: string;
+    until?: string;
+    maxCount?: number;
+    authorEmail?: string;
+    authorName?: string;
+  } = {}
 ): Promise<CommitInfo[]> {
   const git = createGit(repoPath);
   const maxCount = options.maxCount ?? 50;
@@ -32,13 +59,23 @@ export async function getCommitTimeline(
   const logOptions: Record<string, unknown> = {
     "--numstat": null,
     "--date": "iso-strict",
-    maxCount,
+    maxCount: options.authorEmail || options.authorName ? maxCount * 3 : maxCount,
   };
   if (options.since) logOptions["--since"] = options.since;
   if (options.until) logOptions["--until"] = options.until;
+  if (options.authorEmail) logOptions["--author"] = options.authorEmail;
 
   const log: LogResult = await git.log(logOptions);
-  return log.all.map(parseLogEntry);
+  let commits = log.all.map(parseLogEntry);
+
+  if (options.authorName) {
+    commits = filterCommitsByAuthor(commits, undefined, options.authorName);
+  }
+  if (options.authorEmail) {
+    commits = filterCommitsByAuthor(commits, options.authorEmail, undefined);
+  }
+
+  return commits.slice(0, maxCount);
 }
 
 export async function getCommitsForDate(

@@ -72,3 +72,15 @@ export interface ResumeWorkContext {
   lastWorkSummary: string;
   nextRecommendedTasks: string[];
 }
+
+export interface ProjectCommit extends CommitInfo {
+  projectName: string;
+  projectLabel: string;
+}
+
+export interface ProjectSearchResult {
+  projectName: string;
+  projectLabel: string;
+  success: boolean;
+  error?: string;
+}

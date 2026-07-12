@@ -1,0 +1,8 @@
+{
+  "projects": [
+    {
+      "name": "demo",
+      "repoPath": "/opt/test_demo_project"
+    }
+  ]
+}

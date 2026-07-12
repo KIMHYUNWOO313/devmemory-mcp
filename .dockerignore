@@ -1,0 +1,8 @@
+node_modules
+.git
+.env
+*.pem
+test-*.mjs
+*.tar.gz
+deploy-aws.ps1
+deploy-remote.sh
