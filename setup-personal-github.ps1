@@ -33,11 +33,12 @@ Write-Host "[2/4] gh에 개인 계정 로그인 (브라우저 열림)" -Foregrou
 Write-Host "      → 개인 GitHub 계정으로 로그인하세요. CoMente가 아닌 본인 계정!"
 gh auth login --hostname github.com --git-protocol https --web
 
-# 3) push 시 이 계정 사용
+# 3) push 시 개인 계정 사용 (완료 후 회사 계정으로 복귀)
+$prevAccount = (gh auth status 2>&1 | Select-String "Logged in to github.com account (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
 gh auth switch --user $GitHubUser
 
 Write-Host ""
-Write-Host "[3/4] gh active account → $GitHubUser" -ForegroundColor Green
+Write-Host "[3/4] gh active account → $GitHubUser (이전: $prevAccount)" -ForegroundColor Green
 
 # 4) remote + repo 생성 + push
 $remote = "https://github.com/$GitHubUser/$RepoName.git"
@@ -50,6 +51,12 @@ if (git remote | Select-String -Pattern "^origin$" -Quiet) {
 Write-Host ""
 Write-Host "[4/4] GitHub repo 생성 및 push..." -ForegroundColor Yellow
 gh repo create $RepoName --public --source=. --remote=origin --push --description "DevMemory MCP - Git commit based developer work memory for PlayMCP"
+
+# 회사 gh 기본 계정 복귀
+if ($prevAccount -and $prevAccount -ne $GitHubUser) {
+    gh auth switch --user $prevAccount | Out-Null
+    Write-Host "gh active account 복귀 → $prevAccount" -ForegroundColor Gray
+}
 
 Write-Host ""
 Write-Host "=== 완료 ===" -ForegroundColor Green
