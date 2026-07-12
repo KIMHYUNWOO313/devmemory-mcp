@@ -16,8 +16,10 @@ Set-Location $Root
 
 Write-Host "=== DevMemory MCP — 개인 GitHub 설정 ===" -ForegroundColor Cyan
 Write-Host "프로젝트: $Root"
-Write-Host "대상 계정: $GitHubUser"
-Write-Host ""
+if ($GitHubUser -match "@") {
+    Write-Host "오류: GitHubUser는 이메일이 아니라 아이디입니다. (예: KIMHYUNWOO313)" -ForegroundColor Red
+    exit 1
+}
 
 # 1) 이 repo에만 git 사용자/ credential username 고정 (전역 gh 설정과 분리)
 if ($DisplayName) { git config --local user.name $DisplayName }
@@ -33,9 +35,17 @@ Write-Host "[2/4] gh에 개인 계정 로그인 (브라우저 열림)" -Foregrou
 Write-Host "      → 개인 GitHub 계정으로 로그인하세요. CoMente가 아닌 본인 계정!"
 gh auth login --hostname github.com --git-protocol https --web
 
+# 로그인된 실제 GitHub 아이디 사용 (파라미터와 다를 수 있음)
+$GitHubUser = (gh api user -q .login)
+Write-Host "      → 로그인 확인: $GitHubUser" -ForegroundColor Green
+git config --local credential.https://github.com.username $GitHubUser
+
 # 3) push 시 개인 계정 사용 (완료 후 회사 계정으로 복귀)
-$prevAccount = (gh auth status 2>&1 | Select-String "Logged in to github.com account (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
-gh auth switch --user $GitHubUser
+$prevAccount = (gh auth status 2>&1 | Select-String "Active account: true" -Context 1,0 | ForEach-Object { if ($_.Context.PreContext -match "account (\S+)") { $Matches[1] } })
+if (-not $prevAccount) {
+    $prevAccount = (gh auth status 2>&1 | Select-String "Logged in to github.com account (\S+)" | Select-Object -First 1 | ForEach-Object { $_.Matches.Groups[1].Value })
+}
+gh auth switch --user $GitHubUser 2>$null
 
 Write-Host ""
 Write-Host "[3/4] gh active account → $GitHubUser (이전: $prevAccount)" -ForegroundColor Green
@@ -50,7 +60,12 @@ if (git remote | Select-String -Pattern "^origin$" -Quiet) {
 
 Write-Host ""
 Write-Host "[4/4] GitHub repo 생성 및 push..." -ForegroundColor Yellow
-gh repo create $RepoName --public --source=. --remote=origin --push --description "DevMemory MCP - Git commit based developer work memory for PlayMCP"
+if (gh repo view "$GitHubUser/$RepoName" 2>$null) {
+    Write-Host "      repo 이미 존재 — push만 진행" -ForegroundColor Gray
+    git push -u origin master
+} else {
+    gh repo create $RepoName --public --source=. --remote=origin --push --description "DevMemory MCP - Git commit based developer work memory for PlayMCP"
+}
 
 # 회사 gh 기본 계정 복귀
 if ($prevAccount -and $prevAccount -ne $GitHubUser) {
